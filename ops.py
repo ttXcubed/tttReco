@@ -67,7 +67,7 @@ sub = lambda x,y: BinaryOp(lambda n1,n2: n1-n2,x,y)
 mul = lambda x,y: BinaryOp(lambda n1,n2: n1*n2,x,y)
 div = lambda x,y: BinaryOp(lambda n1,n2: n1/n2,x,y)
 
-atan2 = lambda x,y: BinaryOp(lambda n1,n2: tf.atan2,x,y)
+atan2 = lambda x,y: BinaryOp(tf.atan2,x,y)
 
 
         
