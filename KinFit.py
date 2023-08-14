@@ -3,6 +3,8 @@ from P4Vector import *
 import ops
 import uproot
 import awkward as ak
+import itertools
+import matplotlib.pyplot as plt
 
 NCOMB = 1 #only consider 1 combination
 
@@ -37,6 +39,13 @@ topl2 = wbosonl2+bquark2
 topl2.setName('topl2')
 toph = wbosonh+bquark3
 toph.setName('toph')
+
+zprime1 = topl1+topl2					#only one of the Z prime tensors is the real one
+zprime1.setName('zprime1')
+zprime2 = topl1+toph
+zprime2.setName('zprime2')
+zprime3 = topl2+toph
+zprime3.setName('zprime3')
 
 #transverse momentum conservation constraints
 chi2 = ops.square((met.px()-neutrino1.px()-neutrino2.px())/10.)
@@ -113,7 +122,7 @@ jet_reco_eta = jet_reco_eta[jet_reco_idx>=0]
 jet_reco_phi = f['Friends']['ttt_reco_jet_phi'].array(library='ak')[dilep]
 jet_reco_phi = jet_reco_phi[jet_reco_idx>=0]
 
-nevents = 1
+nevents = len(dilep)		#max nevents = len(dilep)
 events = [0]*nevents
 for i in range(nevents):
 	events[i] = {
@@ -122,43 +131,47 @@ for i in range(nevents):
 		'bjet': np.array([[b_reco_pt[i][j], b_reco_phi[i][j], b_reco_eta[i][j], 0.0] for j in range(len(b_reco_pt[i]))], dtype=np.float32),  #Should I include a 4.7 GeV mass for b jets?
 		'qjet': np.array([[jet_reco_pt[i][j], jet_reco_phi[i][j], jet_reco_eta[i][j], 0.0] for j in range(len(jet_reco_pt[i]))], dtype=np.float32)
 	}
-	
-print(len(dilep))
+
+#permutations of the b jets
+list012 = list(itertools.permutations([0, 1, 2]))
+
+nmasses = 18*nevents
+masses = [0]*nmasses
+idx_masses = 0
 
 for event in events:
-    met.setPtPhiEtaMass(event['met'])
-    neutrino1.setPtPhiEtaMass(event['met']) #set to the same value as starting condition
-    neutrino2.setPtPhiEtaMass(event['met'])
+	for perm in list012:
+		met.setPtPhiEtaMass(event['met'])
+		neutrino1.setPtPhiEtaMass(event['met']) #set to the same value as starting condition
+		neutrino2.setPtPhiEtaMass(event['met'])
     
-    lepton1.setPtPhiEtaMass(event['lepton'][0].reshape((1,4)))
-    lepton2.setPtPhiEtaMass(event['lepton'][1].reshape((1,4)))
+		lepton1.setPtPhiEtaMass(event['lepton'][0].reshape((1,4)))
+		lepton2.setPtPhiEtaMass(event['lepton'][1].reshape((1,4)))
     
-    quark1.setPtPhiEtaMass(event['qjet'][0].reshape((1,4)))
-    quark2.setPtPhiEtaMass(event['qjet'][1].reshape((1,4)))
+		quark1.setPtPhiEtaMass(event['qjet'][0].reshape((1,4)))
+		quark2.setPtPhiEtaMass(event['qjet'][1].reshape((1,4)))
     
-    bjet1.setPtPhiEtaMass(event['bjet'][0].reshape((1,4)))
-    bquark1.setPtPhiEtaMass(event['bjet'][0].reshape((1,4))) #set to the same value as starting condition
-    bjet2.setPtPhiEtaMass(event['bjet'][1].reshape((1,4)))
-    bquark2.setPtPhiEtaMass(event['bjet'][1].reshape((1,4))) #set to the same value as starting condition
-    bjet3.setPtPhiEtaMass(event['bjet'][2].reshape((1,4)))
-    bquark3.setPtPhiEtaMass(event['bjet'][2].reshape((1,4))) #set to the same value as starting condition
+		bjet1.setPtPhiEtaMass(event['bjet'][perm[0]].reshape((1,4)))
+		bquark1.setPtPhiEtaMass(event['bjet'][perm[0]].reshape((1,4))) #set to the same value as starting condition
+		bjet2.setPtPhiEtaMass(event['bjet'][perm[1]].reshape((1,4)))
+		bquark2.setPtPhiEtaMass(event['bjet'][perm[1]].reshape((1,4))) #set to the same value as starting condition
+		bjet3.setPtPhiEtaMass(event['bjet'][perm[2]].reshape((1,4)))
+		bquark3.setPtPhiEtaMass(event['bjet'][perm[2]].reshape((1,4))) #set to the same value as starting condition
     
-    for i in range(1):
-        opt.minimize(chi2,[
-                neutrino1.tensor(), #minimize wrt unknown neutrino
-                neutrino2.tensor(),
-                bquark1.tensor(),  #minimize wrt unknown bquark
-                bquark2.tensor(),
-                bquark3.tensor(),
-        ])
-        #print (i,'chi2',chi2().numpy())
-    print("-"*50)
-    print(wbosonl1)
-    print(wbosonl2)
-    print(wbosonh)
-    print(topl1)
-    print(topl2)
-    print(toph)
-    print()
-    
+		for i in range(50):		#this can be changed to increase the number of iterations
+			opt.minimize(chi2,[
+				neutrino1.tensor(), #minimize wrt unknown neutrino
+				neutrino2.tensor(),
+				bquark1.tensor(),  #minimize wrt unknown bquark
+				bquark2.tensor(),
+				bquark3.tensor(),
+			])
+		masses[idx_masses] = zprime1.mass()().numpy()[0]
+		masses[idx_masses+1] = zprime2.mass()().numpy()[0]
+		masses[idx_masses+2] = zprime3.mass()().numpy()[0]
+		idx_masses = idx_masses+3
+
+plt.figure()
+plt.hist(masses, bins=20)
+plt.savefig('hist.png')
 
