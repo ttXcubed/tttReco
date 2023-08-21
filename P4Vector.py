@@ -128,7 +128,7 @@ class PxPyPzEVector(P4Vector):
         return ops.atan2(self._py,self._px)
         
     def __str__(self):
-        return "PxPyPzEVector (%s: px=%.1f,py=%.1f,pz=%.1f,m=%.1f)"%(
+        return "PxPyPzEVector (%s: px=%.2f,py=%.2f,pz=%.2f,m=%.2f)"%(
             self.name(),self.px()(),self.py()(),self.pz()(),self.mass()()
         )
 
@@ -255,7 +255,7 @@ class PtPhiEtaMassVector(P4Vector):
         return self._phi
 
     def __str__(self):
-        return "PtPhiEtaMassVector (%s: pt=%.1f,phi=%.1f,eta=%.1f,m=%.1f)"%(
+        return "PtPhiEtaMassVector (%s: pt=%.2f,phi=%.2f,eta=%.2f,m=%.2f)"%(
             self.name(),self.pt()(),self.phi()(),self.eta()(),self.mass()()
         )
 
