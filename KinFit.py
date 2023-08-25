@@ -2,12 +2,15 @@ from P4Vector import *
 from scipy.optimize import fsolve
 import ops
 import uproot
-import awkward as ak
-import itertools
-import matplotlib.pyplot as plt 
-import tensorflow as tf
 import math 
 import warnings
+import itertools
+import awkward as ak
+import matplotlib.pyplot as plt 
+import tensorflow as tf
+
+#mass of Z' boson in the dataset
+gen_mass = '750'
 
 opt = tf.keras.optimizers.Adam(
 	learning_rate=0.1,
@@ -75,7 +78,7 @@ chi2 += ops.square((toph.mass()-172.5)/2.)
 
 chi2 = ops.reduce_sum(chi2)
 
-dir_samples = '/nfs/dust/cms/user/mkomm/ttx3/KinFit/Samples_new/TopPhilic_ST_m750_relWidth4_TuneCP5_13TeV-madgraph-pythia8/'
+dir_samples = '/nfs/dust/cms/user/mkomm/ttx3/KinFit/Samples_new/TopPhilic_ST_m{}_relWidth4_TuneCP5_13TeV-madgraph-pythia8/'.format(gen_mass)
 
 f = uproot.concatenate((dir_samples + 'ttv_nano_1_Friend.root', dir_samples + 'ttv_nano_2_Friend.root', dir_samples + 'ttv_nano_3_Friend.root', dir_samples + 'ttv_nano_4_Friend.root', dir_samples + 'ttv_nano_5_Friend.root'))
 
@@ -136,7 +139,7 @@ for i in range(nevents):
 	events[i] = {
 		'met': np.array([[met_pt[i], met_phi[i], 0.0, 0.0]], dtype=np.float32),
 		'lepton': np.array([[lep_reco_pt[i][j], lep_reco_phi[i][j], lep_reco_eta[i][j], 0.0] for j in range(len(lep_reco_pt[i]))], dtype=np.float32),
-		'bjet': np.array([[b_reco_pt[i][j], b_reco_phi[i][j], b_reco_eta[i][j], 4.7] for j in range(len(b_reco_pt[i]))], dtype=np.float32),  #Should I include a 4.7 GeV mass for b jets?
+		'bjet': np.array([[b_reco_pt[i][j], b_reco_phi[i][j], b_reco_eta[i][j], 4.7] for j in range(len(b_reco_pt[i]))], dtype=np.float32),
 		'qjet': np.array([[jet_reco_pt[i][j], jet_reco_phi[i][j], jet_reco_eta[i][j], 0.0] for j in range(len(jet_reco_pt[i]))], dtype=np.float32)
 	}
 
@@ -147,7 +150,6 @@ nmasses = 3*nevents
 masses = [0]*nmasses
 idx_masses = 0
 filter_masses = [0]*nevents
-filter_masses2 = [0]*nevents
 
 for event in events:
 	print('Event', int(idx_masses/3+1), 'out of', nevents, end='\r')
@@ -159,16 +161,16 @@ for event in events:
     	
 		lepton1.setPtPhiEtaMass(event['lepton'][0].reshape((1,4)))
 		lepton2.setPtPhiEtaMass(event['lepton'][1].reshape((1,4)))
-    
+		
 		quark1.setPtPhiEtaMass(event['qjet'][0].reshape((1,4)))
 		quark2.setPtPhiEtaMass(event['qjet'][1].reshape((1,4)))
     
 		bjet1.setPtPhiEtaMass(event['bjet'][perm[0]].reshape((1,4)))
-		bquark1.setPtPhiEtaMass(event['bjet'][perm[0]].reshape((1,4))) #set to the same value as starting condition
+		bquark1.setPtPhiEtaMass(event['bjet'][perm[0]].reshape((1,4))) 
 		bjet2.setPtPhiEtaMass(event['bjet'][perm[1]].reshape((1,4)))
-		bquark2.setPtPhiEtaMass(event['bjet'][perm[1]].reshape((1,4))) #set to the same value as starting condition
+		bquark2.setPtPhiEtaMass(event['bjet'][perm[1]].reshape((1,4))) 
 		bjet3.setPtPhiEtaMass(event['bjet'][perm[2]].reshape((1,4)))
-		bquark3.setPtPhiEtaMass(event['bjet'][perm[2]].reshape((1,4))) #set to the same value as starting condition
+		bquark3.setPtPhiEtaMass(event['bjet'][perm[2]].reshape((1,4))) 
 		
 		#function with the constraints to find the best values for the neutrinos
 		def equations(p):
@@ -189,6 +191,7 @@ for event in events:
 		warnings.filterwarnings('ignore', 'The iteration is not making good progress')
 		pnu1x, pnu1y, pnu1z, pnu2x, pnu2y, pnu2z =  fsolve(equations, (329.7, 0.1, 0.6, 326.4, 0.1, 0.6))
 	
+		#the correct permutation gives us the solution of the equations
 		if np.sum(equations((pnu1x, pnu1y, pnu1z, pnu2x, pnu2y, pnu2z))) < best_sum:
 			best_sum = np.sum(equations((pnu1x, pnu1y, pnu1z, pnu2x, pnu2y, pnu2z)))
 			best_perm = perm
@@ -199,13 +202,15 @@ for event in events:
 			best_pnu2y = pnu2y
 			best_pnu2z = pnu2z
 
+	#set the values of the b jets to the ones of the correct permutation
 	bjet1.setPtPhiEtaMass(event['bjet'][best_perm[0]].reshape((1,4)))
-	bquark1.setPtPhiEtaMass(event['bjet'][best_perm[0]].reshape((1,4))) #set to the same value as starting condition
+	bquark1.setPtPhiEtaMass(event['bjet'][best_perm[0]].reshape((1,4))) 
 	bjet2.setPtPhiEtaMass(event['bjet'][best_perm[1]].reshape((1,4)))
-	bquark2.setPtPhiEtaMass(event['bjet'][best_perm[1]].reshape((1,4))) #set to the same value as starting condition
+	bquark2.setPtPhiEtaMass(event['bjet'][best_perm[1]].reshape((1,4))) 
 	bjet3.setPtPhiEtaMass(event['bjet'][best_perm[2]].reshape((1,4)))
-	bquark3.setPtPhiEtaMass(event['bjet'][best_perm[2]].reshape((1,4))) #set to the same value as starting condition
+	bquark3.setPtPhiEtaMass(event['bjet'][best_perm[2]].reshape((1,4))) 
 		
+	#calculation of pt, eta and phi of the neutrinos
 	ptnu1 = np.sqrt(best_pnu1x**2+best_pnu1y**2)
 	etanu1 = np.arcsinh(best_pnu1z/ptnu1)
 	if best_pnu1x>0:
@@ -224,10 +229,10 @@ for event in events:
 	else:
 		phinu2 = np.arctan(best_pnu2y/best_pnu2x)-np.pi
 			
-	neutrino1.setPtPhiEtaMass(np.array([[ptnu1, phinu1, etanu1, 0.0]], dtype=np.float32)) #set to the same value as starting condition
+	neutrino1.setPtPhiEtaMass(np.array([[ptnu1, phinu1, etanu1, 0.0]], dtype=np.float32)) 
 	neutrino2.setPtPhiEtaMass(np.array([[ptnu2, phinu2, etanu2, 0.0]], dtype=np.float32))
 		
-	for i in range(50):		#this can be changed to increase the number of iterations
+	for i in range(50):		#this can be changed to increase the number of iterations in the minimization
 		opt.minimize(chi2,[
 			neutrino1.tensor(), #minimize wrt unknown neutrino
 			neutrino2.tensor(),
@@ -235,13 +240,11 @@ for event in events:
 			bquark2.tensor(),
 			bquark3.tensor(),
 		])
+	#save the three possible Z' masses depending on the permutation of top quarks
 	masses[idx_masses] = zprime1.mass()().numpy()[0]
 	masses[idx_masses+1] = zprime2.mass()().numpy()[0]
 	masses[idx_masses+2] = zprime3.mass()().numpy()[0]
-	filter_masses[int(idx_masses/3)] = np.min([zprime1.mass()().numpy()[0], zprime2.mass()().numpy()[0], zprime3.mass()().numpy()[0]])
-	filter_masses2[int(idx_masses/3)] = np.max([zprime1.mass()().numpy()[0], zprime2.mass()().numpy()[0], zprime3.mass()().numpy()[0]])
 	idx_masses = idx_masses+3
 
 print()
-
-np.save('masses', masses)
+np.save('masses_{}'.format(gen_mass), masses)
